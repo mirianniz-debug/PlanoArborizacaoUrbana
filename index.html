@@ -94,6 +94,9 @@
   #legend h4{margin:0 0 5px;font:600 12px var(--font-body);}
   #legend .li{display:flex;align-items:center;gap:8px;margin:3px 0;color:var(--ink-soft);}
   #legend .sw{width:16px;height:12px;border-radius:2px;flex:0 0 auto;}
+  #legend .tg{cursor:pointer;user-select:none;}
+  #legend .tg input{margin:0;accent-color:var(--forest);cursor:pointer;}
+  #legend small{color:var(--muted);font-size:10.5px;}
   #north{position:absolute;right:14px;top:96px;z-index:800;width:34px;text-align:center;font:700 11px var(--font-display);color:var(--ink);background:rgba(251,252,248,.92);border:1px solid var(--line-strong);border-radius:8px;padding:3px 0 2px;}
   #north svg{display:block;margin:0 auto;width:18px;height:22px;}
   #coords{position:absolute;right:14px;bottom:8px;z-index:800;background:rgba(251,252,248,.92);border:1px solid var(--line-strong);border-radius:6px;padding:2px 8px;font:500 10.5px var(--font-mono);color:var(--ink-soft);}
@@ -209,8 +212,9 @@
     <div id="north"><svg viewBox="0 0 18 22"><path d="M9 1 L16 20 L9 15 L2 20 Z" fill="#16232e"/></svg>N</div>
     <div id="legend">
       <h4>Legenda</h4>
-      <div class="li"><span class="sw" style="background:rgba(46,158,79,.55);border:2px solid #1f7a44"></span>Parques e áreas verdes</div>
-      <div class="li"><span class="sw" style="border:2px dashed #0e1c4a;background:transparent"></span>Limite do município</div>
+      <label class="li tg"><input type="checkbox" checked data-c="parques"><span class="sw" style="background:rgba(46,158,79,.55);border:2px solid #1f7a44"></span>Parques e áreas verdes</label>
+      <label class="li tg"><input type="checkbox" checked data-c="urbana"><span class="sw" style="background:rgba(242,194,48,.18);border:2.5px solid #f2c230"></span>Área urbana <small>(57,27 km²)</small></label>
+      <label class="li tg"><input type="checkbox" checked data-c="limite"><span class="sw" style="border:2px dashed #0e1c4a;background:transparent"></span>Limite do município</label>
     </div>
     <div id="coords">LAT –, LON –</div>
   </div>
@@ -254,9 +258,12 @@ setBase('Satélite');
 map.on('mousemove', e => { $('#coords').textContent = `LAT ${e.latlng.lat.toFixed(5)}, LON ${e.latlng.lng.toFixed(5)}`; });
 
 /* ---------- limite municipal */
-const limite = L.geoJSON(window.LIMITE, {interactive:false, style:{color:'#fff', weight:5, opacity:.7, fill:false}}).addTo(map);
-L.geoJSON(window.LIMITE, {interactive:false, style:{color:'#0e1c4a', weight:2.2, dashArray:'7 5', fill:false}}).addTo(map);
-const homeBounds = limite.getBounds();
+const limiteFundo = L.geoJSON(window.LIMITE, {interactive:false, style:{color:'#fff', weight:5, opacity:.7, fill:false}});
+const limite = L.featureGroup([limiteFundo, L.geoJSON(window.LIMITE, {interactive:false, style:{color:'#0e1c4a', weight:2.2, dashArray:'7 5', fill:false}})]).addTo(map);
+const homeBounds = limiteFundo.getBounds();
+
+/* ---------- área urbana (perímetro urbano do Plano Diretor) */
+const urbana = L.geoJSON(window.AREA_URBANA, {interactive:false, style:{color:'#f2c230', weight:2.5, opacity:.95, fillColor:'#f2c230', fillOpacity:.12}}).addTo(map);
 map.fitBounds(homeBounds, {padding:[20,20]});
 
 /* ---------- parques: agrupa polígonos com o mesmo nome (ex.: Parque dos Lagos) */
@@ -339,6 +346,14 @@ document.querySelectorAll('#plist li').forEach(li => li.onclick = () => selecion
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
   document.querySelectorAll('.pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + t.dataset.p));
+});
+
+/* ---------- ligar e desligar camadas pela legenda */
+const CAMADAS = {parques:[camada, rotulos], urbana:[urbana], limite:[limite]};
+document.querySelectorAll('#legend input[data-c]').forEach(cb => cb.onchange = () => {
+  CAMADAS[cb.dataset.c].forEach(l => cb.checked ? l.addTo(map) : map.removeLayer(l));
+  if (cb.dataset.c === 'parques' && !cb.checked) map.closePopup();
+  if (map.hasLayer(camada)) camada.bringToFront();
 });
 
 /* ---------- botões */
